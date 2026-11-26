@@ -2,7 +2,21 @@
 
 Makes the Sailing ghost sail look like a real ghost sail: see-through, softly glowing, and pulsing slowly.
 
-![Enhanced Ghost Sail](docs/screenshot.png)
+![Ghost sail glowing and pulsing at night with 117 HD](docs/hd.gif)
+
+### Off vs on
+
+![Toggling the effect off and back on](docs/toggle.gif)
+
+### Standard graphics (no 117 HD)
+
+![Ghost sail with the standard renderer](docs/standard.gif)
+
+### Smaller boats too
+
+![Ghost sail on a smaller boat](docs/small.gif)
+
+![Close-up of the ghost sail](docs/closeup.png)
 
 ## What it does
 
