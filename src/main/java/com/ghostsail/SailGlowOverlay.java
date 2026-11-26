@@ -9,7 +9,9 @@ import java.awt.Shape;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
+import java.util.Arrays;
 import javax.inject.Inject;
+import net.runelite.api.Client;
 import net.runelite.api.GameObject;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
@@ -23,13 +25,22 @@ class SailGlowOverlay extends Overlay
 {
     private static final int DOWNSCALE = 4;
     private static final int BLUR_PASSES = 3;
+    /** An outline this many times wider or taller than the viewport is a broken projection, not a sail. */
+    private static final int MAX_VIEWPORT_MULTIPLE = 2;
 
     private final GhostSailPlugin plugin;
+    private final Client client;
+
+    /** Reused between frames so the glow doesn't allocate a new image every frame. */
+    private BufferedImage img;
+    private int[] alpha = new int[0];
+    private int[] tmp = new int[0];
 
     @Inject
-    SailGlowOverlay(GhostSailPlugin plugin)
+    SailGlowOverlay(GhostSailPlugin plugin, Client client)
     {
         this.plugin = plugin;
+        this.client = client;
         setPosition(OverlayPosition.DYNAMIC);
         setLayer(OverlayLayer.ABOVE_SCENE);
     }
@@ -55,7 +66,17 @@ class SailGlowOverlay extends Overlay
             return;
         }
         GhostSailStyle st = plugin.getStyle();
-        Rectangle shape = hull.getBounds();
+        Rectangle viewport = new Rectangle(client.getViewportXOffset(), client.getViewportYOffset(),
+            client.getViewportWidth(), client.getViewportHeight());
+        Rectangle full = hull.getBounds();
+        if (viewport.isEmpty()
+            || full.width > viewport.width * MAX_VIEWPORT_MULTIPLE
+            || full.height > viewport.height * MAX_VIEWPORT_MULTIPLE)
+        {
+            return;
+        }
+        // Only the visible part needs a glow; this also bounds the image to the viewport.
+        Rectangle shape = full.intersection(viewport);
         if (shape.width < 4 || shape.height < 4)
         {
             return;
@@ -67,7 +88,12 @@ class SailGlowOverlay extends Overlay
         int w = shape.width / DOWNSCALE + pad * 2;
         int h = shape.height / DOWNSCALE + pad * 2;
 
-        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        if (img == null || img.getWidth() != w || img.getHeight() != h)
+        {
+            img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        }
+        int[] px = ((DataBufferInt) img.getRaster().getDataBuffer()).getData();
+        Arrays.fill(px, 0);
         Graphics2D ig = img.createGraphics();
         ig.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         AffineTransform toSmall = new AffineTransform();
@@ -79,13 +105,15 @@ class SailGlowOverlay extends Overlay
         ig.fill(hull);
         ig.dispose();
 
-        int[] px = ((DataBufferInt) img.getRaster().getDataBuffer()).getData();
-        int[] alpha = new int[px.length];
+        if (alpha.length < px.length)
+        {
+            alpha = new int[px.length];
+            tmp = new int[px.length];
+        }
         for (int i = 0; i < px.length; i++)
         {
             alpha[i] = px[i] >>> 24;
         }
-        int[] tmp = new int[alpha.length];
         for (int pass = 0; pass < BLUR_PASSES; pass++)
         {
             boxBlur(alpha, tmp, w, h, reach, true);
