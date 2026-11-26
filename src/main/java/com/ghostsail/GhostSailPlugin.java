@@ -38,7 +38,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 
 @Slf4j
 @PluginDescriptor(
-    name = "Ghost Sail",
+    name = "Enhanced Ghost Sail",
     description = "Makes the Sailing ghost sail more see-through and gives it a glow",
     tags = {"sailing", "ghost", "sail", "boat", "transparent", "glow"}
 )
